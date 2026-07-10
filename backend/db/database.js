@@ -1,8 +1,11 @@
 const initSqlJs = require('sql.js');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, '..', 'tasks.db');
+const DB_PATH = process.env.VERCEL
+  ? path.join(os.tmpdir(), 'tasks.db')
+  : path.join(__dirname, '..', 'tasks.db');
 
 let db = null;
 
@@ -12,6 +15,7 @@ let db = null;
 function persistDb() {
   const data = db.export();
   const buffer = Buffer.from(data);
+  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
   fs.writeFileSync(DB_PATH, buffer);
 }
 
