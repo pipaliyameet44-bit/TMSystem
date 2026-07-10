@@ -76,10 +76,14 @@ console.log('✅ Routes mounted: /api/auth, /api/tasks');
 
 // Middleware to ensure database is initialized before handling requests
 app.use(async (req, res, next) => {
+  console.log(`📍 ${req.method} ${req.path}`);
   if (!isInitialized) {
+    console.log('⏳ Waiting for database initialization...');
     try {
       await initializeApp();
+      console.log('✅ Database initialized');
     } catch (error) {
+      console.error('❌ Database initialization error:', error.message);
       return next(error);
     }
   }
@@ -88,6 +92,10 @@ app.use(async (req, res, next) => {
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get('/', (req, res) => {
+  res.json({ message: 'Server is running', env: process.env.NODE_ENV || 'development' });
 });
 
 // 404 handler
