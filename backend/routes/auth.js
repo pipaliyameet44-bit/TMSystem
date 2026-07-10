@@ -60,7 +60,7 @@ router.post('/register', async (req, res) => {
       user: { id: userId, email: email.trim(), first_name: first_name.trim(), last_name: last_name.trim() },
     });
   } catch (err) {
-    console.error('Register error:', err);
+    console.error('Register error:', err.message, err.stack);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });
@@ -107,7 +107,7 @@ router.post('/login', async (req, res) => {
       user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name },
     });
   } catch (err) {
-    console.error('Login error:', err);
+    console.error('Login error:', err.message, err.stack);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });

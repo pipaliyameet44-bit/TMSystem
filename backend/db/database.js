@@ -8,6 +8,7 @@ const DB_PATH = process.env.VERCEL
   : path.join(__dirname, '..', 'tasks.db');
 
 let db = null;
+let initError = null;
 
 /**
  * Persist the in-memory sql.js database to disk.
@@ -18,10 +19,18 @@ function persistDb() {
   try {
     const data = db.export();
     const buffer = Buffer.from(data);
-    fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+    const dbDir = path.dirname(DB_PATH);
+    
+    // Ensure directory exists
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+    
     fs.writeFileSync(DB_PATH, buffer);
+    console.log('✅ Database persisted to', DB_PATH);
   } catch (error) {
-    console.warn('⚠️ Failed to persist database to disk:', error.message);
+    console.warn('⚠️ Failed to persist database:', error.message);
+    // On Vercel or read-only filesystems, this might fail — continue anyway
   }
 }
 
@@ -33,52 +42,81 @@ function persistDb() {
  */
 async function getDb() {
   if (db) return dbApi;
+  if (initError) throw initError;
 
   try {
+    console.log('📦 Initializing sql.js...');
     const SQL = await initSqlJs();
+    console.log('✅ sql.js initialized');
 
+    // Try to load existing database
+    let dbLoaded = false;
     if (fs.existsSync(DB_PATH)) {
-      const fileBuffer = fs.readFileSync(DB_PATH);
-      db = new SQL.Database(fileBuffer);
-      console.log('✅ Loaded existing database from', DB_PATH);
-    } else {
-      db = new SQL.Database();
-      console.log('✅ Created new database at', DB_PATH);
+      try {
+        const fileBuffer = fs.readFileSync(DB_PATH);
+        db = new SQL.Database(fileBuffer);
+        console.log('✅ Loaded existing database from', DB_PATH);
+        dbLoaded = true;
+      } catch (readErr) {
+        console.warn('⚠️ Could not load database file:', readErr.message);
+      }
     }
 
-    db.run('PRAGMA foreign_keys = ON;');
+    // Create new database if load failed
+    if (!dbLoaded) {
+      db = new SQL.Database();
+      console.log('✅ Created new in-memory database');
+    }
 
-    db.run(`
-      CREATE TABLE IF NOT EXISTS users (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        email      TEXT NOT NULL UNIQUE,
-        first_name TEXT NOT NULL,
-        last_name  TEXT NOT NULL,
-        password   TEXT NOT NULL
-      );
+    // Enable foreign keys
+    try {
+      db.run('PRAGMA foreign_keys = ON;');
+    } catch (e) {
+      console.warn('⚠️ Could not enable foreign keys:', e.message);
+    }
 
-      CREATE TABLE IF NOT EXISTS tasks (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id     INTEGER NOT NULL,
-        title       TEXT NOT NULL,
-        description TEXT,
-        status      TEXT NOT NULL DEFAULT 'todo'
-                    CHECK(status IN ('todo', 'in_progress', 'completed')),
-        priority    TEXT NOT NULL DEFAULT 'Medium',
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      );
-    `);
+    // Schema — exactly as per spec
+    try {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS users (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          email      TEXT NOT NULL UNIQUE,
+          first_name TEXT NOT NULL,
+          last_name  TEXT NOT NULL,
+          password   TEXT NOT NULL
+        );
 
+        CREATE TABLE IF NOT EXISTS tasks (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id     INTEGER NOT NULL,
+          title       TEXT NOT NULL,
+          description TEXT,
+          status      TEXT NOT NULL DEFAULT 'todo'
+                      CHECK(status IN ('todo', 'in_progress', 'completed')),
+          priority    TEXT NOT NULL DEFAULT 'Medium',
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+      `);
+      console.log('✅ Schema tables created/verified');
+    } catch (e) {
+      console.warn('⚠️ Could not create schema tables:', e.message);
+    }
+
+    // Migrate existing table to add priority column if it doesn't exist
     try {
       db.run("ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'Medium';");
     } catch (e) {
-      // Column already exists
+      // Column already exists or error is acceptable
     }
 
+    // Persist immediately after schema creation
     persistDb();
+    console.log('✅ Database initialized successfully');
+
     return dbApi;
   } catch (error) {
-    console.error('❌ Database initialization failed:', error);
+    console.error('❌ Database initialization failed:', error.message, error.stack);
+    initError = error;
     throw error;
   }
 }
@@ -93,11 +131,16 @@ const dbApi = {
    * Returns the first row as a plain object, or undefined.
    */
   get(sql, ...params) {
-    const stmt = db.prepare(sql);
-    stmt.bind(params.flat());
-    const row = stmt.step() ? stmt.getAsObject() : undefined;
-    stmt.free();
-    return row;
+    try {
+      const stmt = db.prepare(sql);
+      stmt.bind(params.flat());
+      const row = stmt.step() ? stmt.getAsObject() : undefined;
+      stmt.free();
+      return row;
+    } catch (error) {
+      console.error('❌ Database get() error:', { sql, params, error: error.message });
+      throw error;
+    }
   },
 
   /**
@@ -105,12 +148,17 @@ const dbApi = {
    * Returns an array of plain objects.
    */
   all(sql, ...params) {
-    const stmt = db.prepare(sql);
-    stmt.bind(params.flat());
-    const rows = [];
-    while (stmt.step()) rows.push(stmt.getAsObject());
-    stmt.free();
-    return rows;
+    try {
+      const stmt = db.prepare(sql);
+      stmt.bind(params.flat());
+      const rows = [];
+      while (stmt.step()) rows.push(stmt.getAsObject());
+      stmt.free();
+      return rows;
+    } catch (error) {
+      console.error('❌ Database all() error:', { sql, params, error: error.message });
+      throw error;
+    }
   },
 
   /**
@@ -118,22 +166,37 @@ const dbApi = {
    * Returns { lastInsertRowid, changes }.
    */
   run(sql, ...params) {
-    const stmt = db.prepare(sql);
-    stmt.bind(params.flat());
-    stmt.step();
-    stmt.free();
-    const lastInsertRowid = db.exec('SELECT last_insert_rowid()')[0]?.values[0][0];
-    const changes = db.exec('SELECT changes()')[0]?.values[0][0];
-    persistDb();
-    return { lastInsertRowid, changes };
+    try {
+      const stmt = db.prepare(sql);
+      stmt.bind(params.flat());
+      stmt.step();
+      stmt.free();
+      
+      const lastIdResult = db.exec('SELECT last_insert_rowid()')[0];
+      const changesResult = db.exec('SELECT changes()')[0];
+      
+      const lastInsertRowid = lastIdResult?.values?.[0]?.[0];
+      const changes = changesResult?.values?.[0]?.[0];
+      
+      persistDb();
+      return { lastInsertRowid, changes };
+    } catch (error) {
+      console.error('❌ Database run() error:', { sql, params, error: error.message });
+      throw error;
+    }
   },
 
   /**
    * Execute raw SQL (e.g. multi-statement DDL).
    */
   exec(sql) {
-    db.run(sql);
-    persistDb();
+    try {
+      db.run(sql);
+      persistDb();
+    } catch (error) {
+      console.error('❌ Database exec() error:', { sql, error: error.message });
+      throw error;
+    }
   },
 };
 
