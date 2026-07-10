@@ -4,6 +4,7 @@ const jwt     = require('jsonwebtoken');
 const { getDb } = require('../db/database');
 
 const router = express.Router();
+const jwtSecret = process.env.JWT_SECRET || 'task-management-dev-secret';
 
 // ─────────────────────────────────────────────
 // POST /api/auth/register
@@ -49,7 +50,7 @@ router.post('/register', async (req, res) => {
     // ── Issue JWT ────────────────────────────
     const token = jwt.sign(
       { id: userId, email: email.trim() },
-      process.env.JWT_SECRET,
+      jwtSecret,
       { expiresIn: '7d' }
     );
 
@@ -96,7 +97,7 @@ router.post('/login', async (req, res) => {
     // ── Issue JWT ────────────────────────────
     const token = jwt.sign(
       { id: user.id, email: user.email },
-      process.env.JWT_SECRET,
+      jwtSecret,
       { expiresIn: '7d' }
     );
 

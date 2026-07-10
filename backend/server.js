@@ -5,23 +5,40 @@ const { getDb } = require('./db/database');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const allowedOrigins = [
+const defaultAllowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000'
+];
+const configuredAllowedOrigins = [
   process.env.FRONTEND_URL,
+  process.env.ALLOWED_ORIGINS,
   'https://6a50d3fb337dabcb1e0b11ae--taskmanagementsystem635.netlify.app'
-].filter(Boolean);
+]
+  .flatMap(value => (value ? value.split(',').map(item => item.trim()).filter(Boolean) : []));
+const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...configuredAllowedOrigins])];
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+
+  if (allowedOrigins.includes(origin)) return true;
+
+  return /https:\/\/.*\.(vercel\.app|netlify\.app)$/i.test(origin);
+}
 
 // Middleware
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 

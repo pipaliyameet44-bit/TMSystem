@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
 
+const jwtSecret = process.env.JWT_SECRET || 'task-management-dev-secret';
+
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers['authorization'];
 
@@ -10,7 +12,7 @@ const authMiddleware = (req, res, next) => {
   const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, jwtSecret);
     req.user = decoded; // { id, username, email }
     next();
   } catch (err) {
