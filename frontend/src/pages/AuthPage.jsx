@@ -104,7 +104,11 @@ export default function AuthPage() {
       }
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.error || 'Something went wrong. Please try again.');
+      const backendMessage = err.response?.data?.error || err.response?.data?.message;
+      const fallbackMessage = err.message === 'Network Error'
+        ? 'Unable to reach the server. Please check the backend URL and try again.'
+        : 'Something went wrong. Please try again.';
+      setError(backendMessage || fallbackMessage);
     } finally {
       setLoading(false);
     }
