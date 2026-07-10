@@ -11,7 +11,7 @@ let db = null;
 let initError = null;
 
 // Exported API placeholder – will be assigned after DB init
-let dbApi; // <-- added
+let dbApi = null;
 
 /**
  * Persist the in-memory sql.js database to disk.
@@ -149,79 +149,62 @@ async function getDb() {
  * A thin synchronous-style wrapper around sql.js so route handlers
  * don't need to change.
  */
-const dbApi = {
-  /**
-   * Execute a statement that returns rows (SELECT).
-   * Returns the first row as a plain object, or undefined.
-   */
-  get(sql, ...params) {
-    try {
-      const stmt = db.prepare(sql);
-      stmt.bind(params.flat());
-      const row = stmt.step() ? stmt.getAsObject() : undefined;
-      stmt.free();
-      return row;
-    } catch (error) {
-      console.error('❌ Database get() error:', { sql, params, error: error.message });
-      throw error;
-    }
-  },
+function get(sql, ...params) {
+  try {
+    const stmt = db.prepare(sql);
+    stmt.bind(params.flat());
+    const row = stmt.step() ? stmt.getAsObject() : undefined;
+    stmt.free();
+    return row;
+  } catch (error) {
+    console.error('❌ Database get() error:', { sql, params, error: error.message });
+    throw error;
+  }
+}
 
-  /**
-   * Execute a statement that returns multiple rows.
-   * Returns an array of plain objects.
-   */
-  all(sql, ...params) {
-    try {
-      const stmt = db.prepare(sql);
-      stmt.bind(params.flat());
-      const rows = [];
-      while (stmt.step()) rows.push(stmt.getAsObject());
-      stmt.free();
-      return rows;
-    } catch (error) {
-      console.error('❌ Database all() error:', { sql, params, error: error.message });
-      throw error;
-    }
-  },
+function all(sql, ...params) {
+  try {
+    const stmt = db.prepare(sql);
+    stmt.bind(params.flat());
+    const rows = [];
+    while (stmt.step()) rows.push(stmt.getAsObject());
+    stmt.free();
+    return rows;
+  } catch (error) {
+    console.error('❌ Database all() error:', { sql, params, error: error.message });
+    throw error;
+  }
+}
 
-  /**
-   * Execute a mutating statement (INSERT / UPDATE / DELETE).
-   * Returns { lastInsertRowid, changes }.
-   */
-  run(sql, ...params) {
-    try {
-      const stmt = db.prepare(sql);
-      stmt.bind(params.flat());
-      stmt.step();
-      stmt.free();
-      
-      const lastIdResult = db.exec('SELECT last_insert_rowid()')[0];
-      const changesResult = db.exec('SELECT changes()')[0];
-      
-      const lastInsertRowid = lastIdResult?.values?.[0]?.[0];
-      const changes = changesResult?.values?.[0]?.[0];
-      
-      persistDb();
-      return { lastInsertRowid, changes };
-    } catch (error) {
-      console.error('❌ Database run() error:', { sql, params, error: error.message });
-      throw error;
-    }
-  },
+function run(sql, ...params) {
+  try {
+    const stmt = db.prepare(sql);
+    stmt.bind(params.flat());
+    stmt.step();
+    stmt.free();
 
-  /**
-   * Execute raw SQL (e.g. multi-statement DDL).
-   */
-  exec(sql) {
-    try {
-      db.run(sql);
-      persistDb();
-    } catch (error) {
-      console.error('❌ Database exec() error:', { sql, error: error.message });
-      throw error;
-    }
-  },
-};
+    const lastIdResult = db.exec('SELECT last_insert_rowid()')[0];
+    const changesResult = db.exec('SELECT changes()')[0];
+
+    const lastInsertRowid = lastIdResult?.values?.[0]?.[0];
+    const changes = changesResult?.values?.[0]?.[0];
+
+    persistDb();
+    return { lastInsertRowid, changes };
+  } catch (error) {
+    console.error('❌ Database run() error:', { sql, params, error: error.message });
+    throw error;
+  }
+}
+
+function exec(sql) {
+  try {
+    db.run(sql);
+    persistDb();
+  } catch (error) {
+    console.error('❌ Database exec() error:', { sql, error: error.message });
+    throw error;
+  }
+}
 
 module.exports = { getDb };

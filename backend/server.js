@@ -4,7 +4,7 @@ const cors = require('cors');
 const { getDb } = require('./db/database');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 // Default allowed origins for local development (including Vite dev server port 5174)
 const defaultAllowedOrigins = [
   'http://localhost:5173',
@@ -117,13 +117,26 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error.' });
 });
 
+function startServer(port, attempt = 1) {
+  const server = app.listen(port, () => {
+    console.log(`🚀 Server running at http://localhost:${port}`);
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE' && attempt <= 10) {
+      const nextPort = port + 1;
+      console.warn(`⚠️ Port ${port} is busy. Trying ${nextPort}...`);
+      server.close(() => startServer(nextPort, attempt + 1));
+    } else {
+      console.error(`❌ Failed to start server on port ${port}:`, err.message);
+      process.exit(1);
+    }
+  });
+}
+
 if (require.main === module) {
   initializeApp()
-    .then(() => {
-      app.listen(PORT, () => {
-        console.log(`🚀 Server running at http://localhost:${PORT}`);
-      });
-    })
+    .then(() => startServer(PORT))
     .catch(err => {
       console.error('❌ Failed to initialize database:', err);
       process.exit(1);
