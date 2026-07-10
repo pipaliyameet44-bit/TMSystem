@@ -5,9 +5,12 @@ const { getDb } = require('./db/database');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+// Default allowed origins for local development (including Vite dev server port 5174)
 const defaultAllowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
   'http://localhost:3000',
   'http://127.0.0.1:3000'
 ];
