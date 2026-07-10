@@ -3,7 +3,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const DB_PATH = process.env.VERCEL
+const isHostedEnvironment = Boolean(process.env.VERCEL || process.env.RENDER || process.env.NODE_ENV === 'production');
+const DB_PATH = isHostedEnvironment
   ? path.join(os.tmpdir(), 'tasks.db')
   : path.join(__dirname, '..', 'tasks.db');
 

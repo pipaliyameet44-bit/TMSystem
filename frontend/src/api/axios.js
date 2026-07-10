@@ -12,7 +12,7 @@ const getApiBaseUrl = () => {
     return 'http://localhost:5000/api';
   }
 
-  // Production (Netlify, Vercel, etc.): use deployed backend
+  // Production: use deployed backend
   return 'https://tmsystem.onrender.com/api';
 };
 

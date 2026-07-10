@@ -17,7 +17,9 @@ const defaultAllowedOrigins = [
 const configuredAllowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.ALLOWED_ORIGINS,
-  'https://6a50d3fb337dabcb1e0b11ae--taskmanagementsystem635.netlify.app'
+  'https://6a51273c9cb4280d556c6044--tmsystem63524.netlify.app',
+  'https://tmsystem63524.netlify.app',
+  'https://tmsystem.onrender.com'
 ]
   .flatMap(value => (value ? value.split(',').map(item => item.trim()).filter(Boolean) : []));
 const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...configuredAllowedOrigins])];
@@ -80,6 +82,11 @@ console.log('✅ Routes mounted: /api/auth, /api/tasks');
 // Middleware to ensure database is initialized before handling requests
 app.use(async (req, res, next) => {
   console.log(`📍 ${req.method} ${req.path}`);
+
+  if (req.path === '/api/health' || req.path === '/') {
+    return next();
+  }
+
   if (!isInitialized) {
     console.log('⏳ Waiting for database initialization...');
     try {
@@ -87,7 +94,7 @@ app.use(async (req, res, next) => {
       console.log('✅ Database initialized');
     } catch (error) {
       console.error('❌ Database initialization error:', error.message);
-      return next(error);
+      return res.status(503).json({ error: 'Database is unavailable right now. Please try again shortly.' });
     }
   }
   next();
