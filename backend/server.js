@@ -46,29 +46,44 @@ let isInitialized = false;
 let initPromise = null;
 
 async function initializeApp() {
-  if (isInitialized) return;
+  if (isInitialized) {
+    return;
+  }
 
   if (!initPromise) {
-    initPromise = getDb().then(() => {
-      const authRoutes = require('./routes/auth');
-      const taskRoutes = require('./routes/tasks');
-
-      app.use('/api/auth', authRoutes);
-      app.use('/api/tasks', taskRoutes);
-      isInitialized = true;
-    });
+    initPromise = (async () => {
+      try {
+        await getDb();
+        console.log('✅ Database ready');
+        isInitialized = true;
+      } catch (err) {
+        console.error('❌ Database initialization failed:', err.message);
+        throw err;
+      }
+    })();
   }
 
   return initPromise;
 }
 
+// Mount auth and task routes
+const authRoutes = require('./routes/auth');
+const taskRoutes = require('./routes/tasks');
+
+app.use('/api/auth', authRoutes);
+app.use('/api/tasks', taskRoutes);
+console.log('✅ Routes mounted: /api/auth, /api/tasks');
+
+// Middleware to ensure database is initialized before handling requests
 app.use(async (req, res, next) => {
-  try {
-    await initializeApp();
-    next();
-  } catch (error) {
-    next(error);
+  if (!isInitialized) {
+    try {
+      await initializeApp();
+    } catch (error) {
+      return next(error);
+    }
   }
+  next();
 });
 
 app.get('/api/health', (req, res) => {
