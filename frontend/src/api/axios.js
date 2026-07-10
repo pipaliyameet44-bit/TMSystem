@@ -13,7 +13,7 @@ const getApiBaseUrl = () => {
   }
 
   // Production (Netlify, Vercel, etc.): use deployed backend
-  return 'https://task-management-system-3x9r.onrender.com/api';
+  return 'https://tmsystem.onrender.com/api';
 };
 
 const api = axios.create({
