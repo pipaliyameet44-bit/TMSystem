@@ -10,6 +10,9 @@ const DB_PATH = process.env.VERCEL
 let db = null;
 let initError = null;
 
+// Exported API placeholder – will be assigned after DB init
+let dbApi; // <-- added
+
 /**
  * Persist the in-memory sql.js database to disk.
  */
@@ -41,6 +44,7 @@ function persistDb() {
  * so the rest of the codebase doesn't change.
  */
 async function getDb() {
+  // If the DB is already initialized, return the API object
   if (db) return dbApi;
   if (initError) throw initError;
 
@@ -124,6 +128,14 @@ async function getDb() {
     // Persist immediately after schema creation
     persistDb();
     console.log('✅ Database initialized successfully');
+
+    // Assign the API object now that db is ready
+    dbApi = {
+      get,
+      all,
+      run,
+      exec
+    };
 
     return dbApi;
   } catch (error) {
