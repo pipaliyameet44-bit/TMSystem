@@ -46,8 +46,15 @@ async function getDb() {
 
   try {
     console.log('📦 Initializing sql.js...');
-    const SQL = await initSqlJs();
-    console.log('✅ sql.js initialized');
+    
+    let SQL;
+    try {
+      SQL = await initSqlJs();
+      console.log('✅ sql.js initialized successfully');
+    } catch (sqlErr) {
+      console.error('❌ sql.js initialization failed:', sqlErr.message, sqlErr);
+      throw new Error(`sql.js init failed: ${sqlErr.message}`);
+    }
 
     // Try to load existing database
     let dbLoaded = false;
@@ -64,8 +71,13 @@ async function getDb() {
 
     // Create new database if load failed
     if (!dbLoaded) {
-      db = new SQL.Database();
-      console.log('✅ Created new in-memory database');
+      try {
+        db = new SQL.Database();
+        console.log('✅ Created new in-memory database');
+      } catch (createErr) {
+        console.error('❌ Failed to create database:', createErr.message);
+        throw new Error(`Database creation failed: ${createErr.message}`);
+      }
     }
 
     // Enable foreign keys
