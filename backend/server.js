@@ -29,7 +29,7 @@ function isAllowedOrigin(origin) {
 
   if (allowedOrigins.includes(origin)) return true;
 
-  return /https:\/\/.*\.(vercel\.app|netlify\.app)$/i.test(origin);
+  return /https:\/\/.*\.netlify\.app$/i.test(origin);
 }
 
 // Middleware

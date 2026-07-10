@@ -34,7 +34,7 @@ function persistDb() {
     console.log('✅ Database persisted to', DB_PATH);
   } catch (error) {
     console.warn('⚠️ Failed to persist database:', error.message);
-    // On Vercel or read-only filesystems, this might fail — continue anyway
+    // On hosted or read-only filesystems, this might fail — continue anyway
   }
 }
 
